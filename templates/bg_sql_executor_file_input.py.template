@@ -1,0 +1,102 @@
+import os, sys
+from airflow import models
+from airflow.models import DAG
+from airflow.utils.dates import days_ago
+import google.auth
+from google.cloud import bigquery
+from google.api.core.exceptions import NotFound
+from airflow.operators.python_operator import PythonOperator
+from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
+from google.auth import impersonated_credentials
+from datetime import datetime, timedelta
+from functools import partial
+
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+sqldir = os.path.abspath(os.path.dirname(__file__)) + "/src/sqls"
+import send_email as se
+
+PROJECT_ID = os.environ.get("GCP_PROJECT", "{{ project_id }}")
+ENV = PROJECT_ID.split("-")[-1]
+TENANT = "{{ tenant }}"
+APP = "{{ app }}"
+COMPUTE_PROJECT_ID = f"anbc-{ENV}-{TENANT}"
+# LOB = PROJECT_ID.split("-")[-2]
+LOB = "{{ lob }}"
+GCP_ENV = PROJECT_ID.replace("anbc-", "")
+REGION = "{{ region }}"
+USER = "{{ username }}"
+COST_CENTER = "{{ cost_center }}"
+
+CONNECT_SA = f"{TENANT}-{LOB}-connect@{COMPUTE_PROJECT_ID}.iam.gserviceaccount.com"
+RESOURCE_SA = f"gc{LOB}-{TENANT}-onppq@{COMPUTE_PROJECT_ID}.iam.gserviceaccount.com"
+TARGET_SCOPES_LIST = ["https://www.googleapis.com/auth/cloud-platform"]
+
+DAGS_FOLDER = os.environ["DAGS_FOLDER"]
+DAG_REPO = "{{ dag_repo }}"
+DAG_ID = "{{ dag_id }}"
+
+DAG_TAGS = {{ dag_tags }}
+
+BQ_TENANT = "{{ bq_tenant }}"
+BQ_DATA_SET = f"{BQ_TENANT}_auto_pa_{GCP_ENV.replace('-', '_')}"
+BQ_OWNER = f"sa_of_{TENANT}"
+BQ_TABLE_ID = "{{ bq_table_id }}"
+BQ_STREAMING_TABLE_ID = "{{ bq_streaming_table_id }}"
+
+CUR_DIR = os.path.abspath(os.path.dirname(__file__))
+
+# Adjust based on GCP_ENV value
+if GCP_ENV == f"{LOB}-test":
+    CONNECT_SA = f"{TENANT}-{LOB}-connect@{COMPUTE_PROJECT_ID}.iam.gserviceaccount.com"
+    RESOURCE_SA = f"gc{LOB}-{TENANT}-onppq@{COMPUTE_PROJECT_ID}.iam.gserviceaccount.com"
+elif GCP_ENV == f"{LOB}-prod":
+    CONNECT_SA = f"{TENANT}-{LOB}-connect@{COMPUTE_PROJECT_ID}.iam.gserviceaccount.com"
+    RESOURCE_SA = f"gc{LOB}-{TENANT}-onppq@{COMPUTE_PROJECT_ID}.iam.gserviceaccount.com"
+else:
+    print(f"Invalid tenant env - {GCP_ENV} !!")
+
+email_vars = {
+    "to_email": {{ to_emails }},
+    "cc_email": {{ cc_emails }},
+    "dag_env": GCP_ENV.split("-")[-1],
+}
+
+default_dag_args = {
+    "start_date": days_ago(1),
+    "retries": 0,
+    "email_on_failure": False,
+    "email_on_success": False,
+    "project_id": PROJECT_ID,
+    "owner": "{{ owner_email }}",
+    {% if notify_success %}
+    "on_success_callback": partial(se.success_email, email_vars),
+    {% endif %}
+    {% if notify_failure %}
+    "on_failure_callback": partial(se.failure_email, email_vars),
+    {% endif %}
+}
+
+with DAG(
+    DAG_ID,
+    start_date=days_ago(1),
+    catchup=False,
+    schedule_interval="{{ schedule_interval }}",
+    default_args=default_dag_args,
+    is_paused_upon_creation=True,
+    max_active_runs=1,
+    tags=DAG_TAGS,
+) as dag:
+
+    bq_stream_to_bq_view = BigQueryInsertJobOperator(
+        task_id="bq_stream_to_bq_view",
+        configuration={
+            "query": {
+                "query": open(
+                    f"{CUR_DIR}/src/sqls/{{ sql_file_name }}", "r"
+                ).read().format(**locals()),
+                "useLegacySql": False,
+            }
+        },
+    )
+
+    (bq_stream_to_bq_view)
