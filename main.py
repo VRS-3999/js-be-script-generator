@@ -28,7 +28,7 @@ async def generate_script(payload: Dict[str, Any]):
             "dag_path": "dag_path",
             "dag_code": "dag_code"
         }
-    if payload.get('dag_type') == BG_SQL_EXECUTOR:
+    if str(payload.get('dag_type')).upper() == BG_SQL_EXECUTOR:
         generator = DagGenerator(
             cfg=CFG,
             system_instruction_md_path="prompts/system_instruction.md",
@@ -79,7 +79,7 @@ async def generate_script(payload: Dict[str, Any]):
             payload=dag_config,
         )
         return result
-    elif payload.get("dag_type") == BT_TO_BQ_STREAMING:
+    elif str(payload.get("dag_type")).upper() == BT_TO_BQ_STREAMING:
         generator = DagGenerator(
             cfg=CFG,
             system_instruction_md_path="prompts/system_instruction.md",
