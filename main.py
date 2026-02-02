@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any
@@ -16,8 +18,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.post("/api/generate_script")
 async def generate_script(payload: Dict[str, Any]):
+    if eval(os.environ.get("DEBUG")):
+        return {
+            "dag_id": payload["dag_id"],
+            "dag_uuid": "dag_uuid",
+            "dag_path": "dag_path",
+            "dag_code": "dag_code"
+        }
     if payload.get('dag_type') == BG_SQL_EXECUTOR:
         generator = DagGenerator(
             cfg=CFG,
