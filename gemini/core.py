@@ -72,8 +72,9 @@ class DagGenerator:
 
         # UUID-based DAG filename
         dag_uuid = uuid.uuid4().hex
+        # Create Folder if not exists
         dag_path = os.path.join(
-            os.environ["DAGS_FOLDER"],
+            os.environ.get("DAGS_FOLDER", "DAGS_FOLDER"),
             f"{dag_uuid}.py",
         )
 
@@ -84,4 +85,5 @@ class DagGenerator:
             "dag_id": payload["dag_id"],
             "dag_uuid": dag_uuid,
             "dag_path": dag_path,
+            "dag_code": dag_code
         }

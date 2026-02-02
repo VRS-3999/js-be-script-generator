@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any
-from settings.config import BG_SQL_EXECUTOR
+from settings.config import BG_SQL_EXECUTOR, BT_TO_BQ_STREAMING
 from gemini.core import DagGenerator, CFG
 from utils.common import _normalize_list
 
@@ -69,6 +69,23 @@ async def generate_script(payload: Dict[str, Any]):
             payload=dag_config,
         )
         return result
+    elif payload.get("dag_type") == BT_TO_BQ_STREAMING:
+        generator = DagGenerator(
+            cfg=CFG,
+            system_instruction_md_path="prompts/system_instruction.md",
+        )
+
+        with open("templates/bt_to_bq_streaming.py.template") as f:
+            dag_template = f.read()
+
+        result = generator.generate_and_write_dag(
+            dag_template=dag_template,
+            payload=payload,
+        )
+        return result
     return {
-        "status": "success"
-    }
+            "dag_id": payload["dag_id"],
+            "dag_uuid": "dag_uuid",
+            "dag_path": "dag_path",
+            "dag_code": "dag_code"
+        }

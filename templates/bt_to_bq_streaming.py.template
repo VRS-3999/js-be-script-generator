@@ -1,0 +1,187 @@
+from airflow import models
+from airflow.providers.google.cloud.operators.dataflow import (
+    DataflowStartFlexTemplateOperator,
+)
+from airflow.operators.python_operator import PythonOperator
+from airflow.utils.dates import days_ago
+
+import google.auth
+from google.auth import impersonated_credentials
+from google.cloud import bigquery
+from google.cloud.exceptions import NotFound
+
+import os
+import time
+import logging
+from datetime import datetime
+
+# -------------------------------------------------------------------
+# Logging
+# -------------------------------------------------------------------
+logger = logging.getLogger("airflow.task")
+
+# -------------------------------------------------------------------
+# Environment & Constants
+# -------------------------------------------------------------------
+PROJECT_ID = "{{ project_id }}"
+GCP_ENV = PROJECT_ID.replace("anbc-", "")
+CODE_ENV = PROJECT_ID.split("-")[-1]
+
+TENANT = "{{ tenant }}"
+LOB = "{{ lob }}"
+
+COMPUTE_PROJECT_ID = f"anbc-{CODE_ENV}-{TENANT}"
+
+REGION = "{{ region }}"
+USER = "{{ username }}"
+COST_CENTER = "{{ cost_center }}"
+APP_NAME = "{{ app }}"
+
+TARGET_SCOPES_LIST = ["https://www.googleapis.com/auth/cloud-platform"]
+
+RESOURCE_SA = f"gc-{LOB}-{TENANT}-onppd@{COMPUTE_PROJECT_ID}.iam.gserviceaccount.com"
+CONNECT_SA = f"{TENANT}-{LOB}-connect@{COMPUTE_PROJECT_ID}.iam.gserviceaccount.com"
+
+SUBNET = (
+    f"https://www.googleapis.com/compute/v1/projects/"
+    f"insurance-vpc/regions/{REGION}/subnetworks/"
+    f"sn-aa-use4-anbc-{CODE_ENV}-share"
+)
+
+BQ_TENANT = "{{ bq_tenant }}"
+BQ_DATASET_ID = f"{BQ_TENANT}_auto_pa_{GCP_ENV}"
+BQ_TABLE_ID = "{{ bq_table_id }}"
+
+BT_INSTANCE_ID = "{{ bt_instance_id }}"
+BT_TABLE_ID = "{{ bt_table_id }}"
+BT_COLUMN_ID = "{{ bt_column_id }}"
+
+TEMP_BUCKET = "{{ temp_bucket }}"
+
+# -------------------------------------------------------------------
+# DAG Settings
+# -------------------------------------------------------------------
+DAG_ID = "{{ dag_id }}"
+DAG_TAGS = {{ dag_tags }}
+
+default_dag_args = {
+    "start_date": days_ago(1),
+    "retries": 0,
+    "project_id": COMPUTE_PROJECT_ID,
+}
+
+# -------------------------------------------------------------------
+# BigQuery Table Creation
+# -------------------------------------------------------------------
+def create_bq_table_func(**kwargs):
+    credentials, _ = google.auth.default()
+
+    target_credentials = impersonated_credentials.Credentials(
+        source_credentials=credentials,
+        target_principal=kwargs["RESOURCE_SA"],
+        target_scopes=kwargs["TARGET_SCOPES_LIST"],
+    )
+
+    bq_client = bigquery.Client(
+        credentials=target_credentials,
+        project=kwargs["COMPUTE_PROJECT_ID"],
+    )
+
+    table_id = (
+        f"{kwargs['PROJECT_ID']}."
+        f"{kwargs['BQ_DATASET_ID']}."
+        f"{kwargs['BQ_TABLE_ID']}"
+    )
+
+    bq_client.delete_table(table_id, not_found_ok=True)
+
+    schema = [
+        bigquery.SchemaField("is_gc", "BOOL"),
+        bigquery.SchemaField("tiebreaker", "INT64"),
+        bigquery.SchemaField("row_key", "STRING"),
+        bigquery.SchemaField("mod_type", "STRING"),
+        bigquery.SchemaField("column_family", "STRING"),
+        bigquery.SchemaField("column", "STRING"),
+        bigquery.SchemaField("value", "STRING"),
+        bigquery.SchemaField("source_instance", "STRING"),
+        bigquery.SchemaField("source_cluster", "STRING"),
+        bigquery.SchemaField("source_table", "STRING"),
+        bigquery.SchemaField("commit_timestamp", "TIMESTAMP"),
+        bigquery.SchemaField("timestamp", "TIMESTAMP"),
+        bigquery.SchemaField("timestamp_from", "TIMESTAMP"),
+        bigquery.SchemaField("timestamp_to", "TIMESTAMP"),
+        bigquery.SchemaField("big_query_commit_timestamp", "TIMESTAMP"),
+    ]
+
+    table = bigquery.Table(table_id, schema=schema)
+    table.labels = {
+        "owner": kwargs["USER"],
+        "costcenter": kwargs["COST_CENTER"],
+    }
+
+    bq_client.create_table(table)
+    time.sleep(5)
+
+    bq_client.get_table(table_id)
+
+# -------------------------------------------------------------------
+# DAG Definition
+# -------------------------------------------------------------------
+with models.DAG(
+    DAG_ID,
+    schedule_interval=None,
+    default_args=default_dag_args,
+    tags=DAG_TAGS,
+    is_paused_upon_creation=True,
+) as dag:
+
+    create_bq_table = PythonOperator(
+        task_id="create_bq_table",
+        python_callable=create_bq_table_func,
+        op_kwargs={
+            "PROJECT_ID": PROJECT_ID,
+            "BQ_DATASET_ID": BQ_DATASET_ID,
+            "BQ_TABLE_ID": BQ_TABLE_ID,
+            "BT_INSTANCE_ID": BT_INSTANCE_ID,
+            "BT_TABLE_ID": BT_TABLE_ID,
+            "BT_COLUMN_ID": BT_COLUMN_ID,
+            "RESOURCE_SA": RESOURCE_SA,
+            "TARGET_SCOPES_LIST": TARGET_SCOPES_LIST,
+            "USER": USER,
+            "COST_CENTER": COST_CENTER,
+            "COMPUTE_PROJECT_ID": COMPUTE_PROJECT_ID,
+        },
+    )
+
+    trigger_dataflow_job = DataflowStartFlexTemplateOperator(
+        task_id="trigger_dataflow_job",
+        location=REGION,
+        project_id=PROJECT_ID,
+        impersonation_chain=CONNECT_SA,
+        template="gs://dataflow-templates/latest/flex/Bigtable_Change_Streams_to_BigQuery",
+        body={
+            "launchParameter": {
+                "jobName": "{{ dataflow_job_name }}",
+                "parameters": {
+                    "bigtableReadProjectId": PROJECT_ID,
+                    "bigtableReadInstanceId": BT_INSTANCE_ID,
+                    "bigtableReadTableId": BT_TABLE_ID,
+                    "bigtableChangeStreamAppProfile": "default",
+                    "bigQueryDataset": BQ_DATASET_ID,
+                    "bigQueryChangelogTableName": BQ_TABLE_ID,
+                },
+                "environment": {
+                    "serviceAccountEmail": RESOURCE_SA,
+                    "tempLocation": TEMP_BUCKET,
+                    "stagingLocation": TEMP_BUCKET,
+                    "ipConfiguration": "WORKER_IP_PRIVATE",
+                    "subnetwork": SUBNET,
+                    "enableStreamingEngine": "true",
+                },
+            },
+            "validateOnly": False,
+        },
+        wait_until_finished=False,
+    )
+
+    create_bq_table >> trigger_dataflow_job

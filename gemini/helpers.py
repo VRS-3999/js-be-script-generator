@@ -11,10 +11,10 @@ class GeminiConfig:
 
 
 CFG = GeminiConfig(
-    project_id=os.environ.get("GCP_PROJECT", "DEFAULT"),
-    region=os.environ.get("GCP_REGION", "us-central1"),
-    model_name="gemini-1.5-pro",
-    temperature=0.1,
+    project_id=os.environ.get("GCP_PROJECT"),
+    region=os.environ.get("GCP_REGION"),
+    model_name="gemini-2.5-flash",
+    temperature=0.2,
 )
 
 
