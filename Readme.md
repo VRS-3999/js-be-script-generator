@@ -70,3 +70,8 @@
   "dataflow_job_name": "auto-pa-bt-to-bq-streaming-dag"
 }
 ```
+
+### TODO
+1. .env Approach using decouple
+2. Remove DAG Folder approach
+3. BG_SQL --> BQ_SQL

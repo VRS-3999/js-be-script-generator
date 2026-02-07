@@ -64,26 +64,49 @@ class DagGenerator:
         payload: dict,
     ) -> dict:
         user_prompt = build_user_prompt(dag_template, payload)
-
         dag_code = self.generate_dag_code(user_prompt)
-
         # Validate generated Python
         ast.parse(dag_code)
-
-        # UUID-based DAG filename
-        dag_uuid = uuid.uuid4().hex
-        # Create Folder if not exists
-        dag_path = os.path.join(
-            os.environ.get("DAGS_FOLDER", "DAGS_FOLDER"),
-            f"{dag_uuid}.py",
-        )
-
-        with open(dag_path, "w") as f:
-            f.write(dag_code)
-
         return {
-            "dag_id": payload["dag_id"],
-            "dag_uuid": dag_uuid,
-            "dag_path": dag_path,
             "dag_code": dag_code
         }
+
+    def cron_from_description_ai(self, description: str) -> str:
+        """
+        Uses Gemini to convert a human cron description into a UTC cron expression.
+
+        Example:
+            Input:  "Everything is in utc… daily at 7 AM EST"
+            Output: "0 12 * * *"
+        """
+
+        prompt = f"""
+            {self.system_instruction}
+
+            Description:
+            {description}
+            """
+
+        contents = [
+            types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=prompt)],
+            )
+        ]
+
+        response = self.client.models.generate_content(
+            model=self.cfg.model_name,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                temperature=0.0,  # deterministic output
+                response_mime_type="text/plain",
+            ),
+        )
+
+        cron = (response.text or "").strip()
+
+        # Basic validation: must have 5 cron fields
+        if len(cron.split()) != 5:
+            raise ValueError(f"Invalid cron returned by AI: '{cron}'")
+
+        return cron

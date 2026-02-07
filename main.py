@@ -142,3 +142,15 @@ async def generate_script(payload: Dict[str, Any]):
         )
         return result
 
+
+@app.post("/api/cron-job-schedule-syntax")
+async def generate_cron_job_schedule_syntax(payload: Dict[str, Any]):
+    if eval(os.environ.get("DEBUG")):
+        return {"data": "* * * * *"}
+    else:
+        prompt = payload.get("prompt")
+        generator = DagGenerator(
+            cfg=CFG,
+            system_instruction_md_path="prompts/cron_instruction.md",
+        )
+        cron = generator.cron_from_description_ai(prompt)
