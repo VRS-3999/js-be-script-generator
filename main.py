@@ -4,8 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any
 from settings.config import BG_SQL_EXECUTOR, BT_TO_BQ_STREAMING, INLINE_SQL, EXTERNAL_SQL, DAG_REPO
-from gemini.core import DagGenerator, CFG
-from utils.common import _normalize_list
+from utils.common import _normalize_list, is_debug, load_template, get_generator, CFG, generate_and_write_dag
 
 app = FastAPI()
 
@@ -21,7 +20,7 @@ app.add_middleware(
 
 @app.post("/api/generate_script")
 async def generate_script(payload: Dict[str, Any]):
-    if eval(os.environ.get("DEBUG")):
+    if is_debug():
         return {
             "dag_id": payload["dag_id"],
             "dag_uuid": "dag_uuid",
@@ -29,10 +28,6 @@ async def generate_script(payload: Dict[str, Any]):
             "dag_code": "dag_code"
         }
     if str(payload.get('dag_type')).upper() == BG_SQL_EXECUTOR:
-        generator = DagGenerator(
-            cfg=CFG,
-            system_instruction_md_path="prompts/system_instruction.md",
-        )
         dag_config = {
             "app": payload.get("app", ""),
             "bq_streaming_table_id": payload.get("bq_streaming_table_id", ''),
@@ -67,8 +62,7 @@ async def generate_script(payload: Dict[str, Any]):
             "notify_failure": payload.get("notify_failure", ''),
         }
         if str(payload.get('sql_source_type')).upper() == EXTERNAL_SQL:
-            with open("templates/bg_sql_executor_file_input.py.template", "r") as f:
-                dag_template = f.read()
+            dag_template = load_template("templates/bg_sql_executor_file_input.py.template")
             external_sql_filename = (
                 payload.get("external_sql_file", {})
                 .get("fileList", [{}])[0]
@@ -77,29 +71,15 @@ async def generate_script(payload: Dict[str, Any]):
             if not external_sql_filename:
                 raise ValueError("external_sql_file.fileList[0].name is required")
             dag_config.update("sql_file_name", external_sql_filename)
-            result = generator.generate_and_write_dag(
-                dag_template=dag_template,
-                payload=dag_config,
-            )
+            result = generate_and_write_dag(dag_template, dag_config)
             return result
         elif str(payload.get('sql_source_type')).upper() == INLINE_SQL:
-            with open("templates/bg_sql_executor_inline_sql.template", "r") as f:
-                dag_template = f.read()
+            dag_template = load_template("templates/bg_sql_executor_inline_sql.template")
             dag_config.update("inline_sql_query", payload.get("inline_sql_query", ""))
-            result = generator.generate_and_write_dag(
-                dag_template=dag_template,
-                payload=dag_config,
-            )
+            result = generate_and_write_dag(dag_template, dag_config)
             return result
     elif str(payload.get("dag_type")).upper() == BT_TO_BQ_STREAMING:
-        generator = DagGenerator(
-            cfg=CFG,
-            system_instruction_md_path="prompts/system_instruction.md",
-        )
-
-        with open("templates/bt_to_bq_streaming.py.template", "r") as f:
-            dag_template = f.read()
-
+        dag_template = load_template("templates/bt_to_bq_streaming.py.template")
         dag_config = {
             # ─── PROJECT / ENV ─────────────────────────
             "project_id": CFG.project_id,
@@ -148,21 +128,16 @@ async def generate_script(payload: Dict[str, Any]):
             "dataflow_job_name": payload.get("dataflow_job_name", ""),
         }
 
-        result = generator.generate_and_write_dag(
-            dag_template=dag_template,
-            payload=dag_config,
-        )
+        result = generate_and_write_dag(dag_template, dag_config)
         return result
 
 
 @app.post("/api/cron-job-schedule-syntax")
 async def generate_cron_job_schedule_syntax(payload: Dict[str, Any]):
-    if eval(os.environ.get("DEBUG")):
-        return {"data": "* * * * *"}
+    if is_debug():
+        return {"data": "0 * * * *"}
     else:
         prompt = payload.get("prompt")
-        generator = DagGenerator(
-            cfg=CFG,
-            system_instruction_md_path="prompts/cron_instruction.md",
-        )
+        generator = get_generator("prompts/cron_instruction.md")
         cron = generator.cron_from_description_ai(prompt)
+        return {"data": cron}
