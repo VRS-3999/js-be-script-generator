@@ -3,7 +3,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any
-from settings.config import BG_SQL_EXECUTOR, BT_TO_BQ_STREAMING, INLINE_SQL, EXTERNAL_SQL, DAG_REPO
+from settings.config import BG_SQL_EXECUTOR, BT_TO_BQ_STREAMING, INLINE_SQL, EXTERNAL_SQL
 from utils.common import _normalize_list, is_debug, load_template, get_generator, CFG, generate_and_write_dag
 
 app = FastAPI()
@@ -35,7 +35,6 @@ async def generate_script(payload: Dict[str, Any]):
             "bq_tenant": payload.get("bq_tenant", ''),
             "brief_description": payload.get("brief_description", ''), # NOT USED IN TEMPLATES
             "cost_center": payload.get("cost_center", ""),
-            "dag_id": payload.get("dag_id", ""),
             "to_emails": _normalize_list(payload.get("dev_failure_emails", '')),
             "dev_success_emails": _normalize_list(payload.get("dev_success_emails", '')), # NOT USED IN TEMPLATES
             "prod_failure_emails": _normalize_list(payload.get("prod_failure_emails", '')), # NOT USED IN TEMPLATES
@@ -46,10 +45,13 @@ async def generate_script(payload: Dict[str, Any]):
             "lob": payload.get("lob", ""),
             "schedule_interval": payload.get("schedule_interval", "0 * * * *"),
             "tenant": payload.get("tenant", ""),
+            "dag_id": payload.get("dag_id", ""),
+            "dag_repo": payload.get("dag_repo", ""),
+            "dag_name": payload.get("dag_name", ""),
+            
             "project_id": CFG.project_id,
             "region": CFG.region,
             "username": payload.get("username", ""),
-            "dag_repo": DAG_REPO,
             "dag_tags": [
                 f"tenant:{payload.get('tenant', '')}",
                 f"app:{payload.get('app', '')}",
@@ -92,7 +94,8 @@ async def generate_script(payload: Dict[str, Any]):
             "cost_center": payload.get("cost_center", ""),
 
             # ─── DAG METADATA ──────────────────────────
-            "dag_repo": "auto-pa-features-update-bq",
+            "dag_repo": payload.get("dag_repo", ""),
+            "dag_name": payload.get("dag_name", ""),
             "dag_id": payload.get("dag_id", ""),
             "dag_tags": [
                 f"tenant:{payload.get('tenant', '')}",
