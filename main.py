@@ -3,7 +3,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any
-from settings.config import BG_SQL_EXECUTOR, BT_TO_BQ_STREAMING, INLINE_SQL, EXTERNAL_SQL
+from settings.config import BG_SQL_EXECUTOR, BT_TO_BQ_STREAMING, INLINE_SQL, EXTERNAL_SQL, MANAGER_DEFAULTS
 from utils.common import _normalize_list, is_debug, load_template, get_generator, CFG, generate_and_write_dag
 
 app = FastAPI()
@@ -144,3 +144,33 @@ async def generate_cron_job_schedule_syntax(payload: Dict[str, Any]):
         generator = get_generator("prompts/cron_instruction.md")
         cron = generator.cron_from_description_ai(prompt)
         return {"data": cron}
+    
+
+@app.get("/api/manager-defaults/{manager_name}")
+async def get_manager_defaults(manager_name: str):
+    
+    manager_name = manager_name.lower()
+
+    if manager_name not in MANAGER_DEFAULTS:
+        return {
+            "success": False,
+            "message": f"No default configuration found for manager '{manager_name}'"
+        }
+
+    return {
+        "success": True,
+        "manager": manager_name,
+        "data": MANAGER_DEFAULTS[manager_name]
+    }
+
+@app.get("/api/managers")
+async def get_all_managers():
+    managers = [
+        {"label": name.capitalize(), "value": name}
+        for name in MANAGER_DEFAULTS.keys()
+    ]
+
+    return {
+        "success": True,
+        "data": managers
+    }
