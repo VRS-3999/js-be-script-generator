@@ -39,8 +39,18 @@ APP_NAME = "{{ app }}"
 
 TARGET_SCOPES_LIST = ["https://www.googleapis.com/auth/cloud-platform"]
 
-RESOURCE_SA = f"gc-{LOB}-{TENANT}-onppd@{COMPUTE_PROJECT_ID}.iam.gserviceaccount.com"
-CONNECT_SA = f"{TENANT}-{LOB}-connect@{COMPUTE_PROJECT_ID}.iam.gserviceaccount.com"
+CONNECT_SA = "{{ dev_connect_sa }}"
+RESOURCE_SA = "{{ dev_resource_sa }}"
+
+# Adjust based on GCP_ENV value
+if GCP_ENV == f"{LOB}-test":
+    CONNECT_SA = "{{ qa_connect_sa }}"
+    RESOURCE_SA = "{{ qa_resource_sa }}"
+elif GCP_ENV == f"{LOB}-prod":
+    CONNECT_SA = "{{ prod_connect_sa }}"
+    RESOURCE_SA = "{{ prod_resource_sa }}"
+else:
+    print(f"Invalid tenant env - {GCP_ENV} !!")
 
 SUBNET = (
     f"https://www.googleapis.com/compute/v1/projects/"

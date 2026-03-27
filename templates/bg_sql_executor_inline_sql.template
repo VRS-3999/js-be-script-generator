@@ -27,8 +27,8 @@ REGION = "{{ region }}"
 USER = "{{ username }}"
 COST_CENTER = "{{ cost_center }}"
 
-CONNECT_SA = f"{TENANT}-{LOB}-connect@{COMPUTE_PROJECT_ID}.iam.gserviceaccount.com"
-RESOURCE_SA = f"gc{LOB}-{TENANT}-onppq@{COMPUTE_PROJECT_ID}.iam.gserviceaccount.com"
+CONNECT_SA = "{{ dev_connect_sa }}"
+RESOURCE_SA = "{{ dev_resource_sa }}"
 TARGET_SCOPES_LIST = ["https://www.googleapis.com/auth/cloud-platform"]
 
 DAGS_FOLDER = os.environ["DAGS_FOLDER"]
@@ -47,11 +47,11 @@ CUR_DIR = os.path.abspath(os.path.dirname(__file__))
 
 # Adjust based on GCP_ENV value
 if GCP_ENV == f"{LOB}-test":
-    CONNECT_SA = f"{TENANT}-{LOB}-connect@{COMPUTE_PROJECT_ID}.iam.gserviceaccount.com"
-    RESOURCE_SA = f"gc{LOB}-{TENANT}-onppq@{COMPUTE_PROJECT_ID}.iam.gserviceaccount.com"
+    CONNECT_SA = "{{ qa_connect_sa }}"
+    RESOURCE_SA = "{{ qa_resource_sa }}"
 elif GCP_ENV == f"{LOB}-prod":
-    CONNECT_SA = f"{TENANT}-{LOB}-connect@{COMPUTE_PROJECT_ID}.iam.gserviceaccount.com"
-    RESOURCE_SA = f"gc{LOB}-{TENANT}-onppq@{COMPUTE_PROJECT_ID}.iam.gserviceaccount.com"
+    CONNECT_SA = "{{ prod_connect_sa }}"
+    RESOURCE_SA = "{{ prod_resource_sa }}"
 else:
     print(f"Invalid tenant env - {GCP_ENV} !!")
 

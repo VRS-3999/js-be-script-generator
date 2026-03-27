@@ -41,6 +41,12 @@ async def generate_script(payload: Dict[str, Any]):
             "prod_success_emails": _normalize_list(payload.get("prod_success_emails", '')), # NOT USED IN TEMPLATES
             "test_failure_emails": _normalize_list(payload.get("test_failure_emails", '')), # NOT USED IN TEMPLATES
             "test_success_emails": _normalize_list(payload.get("test_success_emails", '')), # NOT USED IN TEMPLATES
+            "dev_resource_sa": _normalize_list(payload.get("dev_resource_sa", '')),
+            "dev_connect_sa": _normalize_list(payload.get("dev_connect_sa", '')),
+            "qa_resource_sa": _normalize_list(payload.get("qa_resource_sa", '')),
+            "qa_connect_sa": _normalize_list(payload.get("qa_connect_sa", '')),
+            "prod_resource_sa": _normalize_list(payload.get("prod_resource_sa", '')),
+            "prod_connect_sa": _normalize_list(payload.get("prod_connect_sa", '')),
             "owner_email": payload.get("email", ''),
             "lob": payload.get("lob", ""),
             "schedule_interval": payload.get("schedule_interval", "0 * * * *"),
@@ -92,6 +98,14 @@ async def generate_script(payload: Dict[str, Any]):
             "lob": payload.get("lob", ""),
             "app": payload.get("app", ""),
             "cost_center": payload.get("cost_center", ""),
+
+
+            "dev_resource_sa": _normalize_list(payload.get("dev_resource_sa", '')),
+            "dev_connect_sa": _normalize_list(payload.get("dev_connect_sa", '')),
+            "qa_resource_sa": _normalize_list(payload.get("qa_resource_sa", '')),
+            "qa_connect_sa": _normalize_list(payload.get("qa_connect_sa", '')),
+            "prod_resource_sa": _normalize_list(payload.get("prod_resource_sa", '')),
+            "prod_connect_sa": _normalize_list(payload.get("prod_connect_sa", '')),
 
             # ─── DAG METADATA ──────────────────────────
             "dag_repo": payload.get("dag_repo", ""),
