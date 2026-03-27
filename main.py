@@ -71,19 +71,25 @@ async def generate_script(payload: Dict[str, Any]):
         }
         if str(payload.get('sql_source_type')).upper() == EXTERNAL_SQL:
             dag_template = load_template("templates/bg_sql_executor_file_input.py.template")
-            external_sql_filename = (
-                payload.get("external_sql_file", {})
-                .get("fileList", [{}])[0]
-                .get("name")
-            )
-            if not external_sql_filename:
-                raise ValueError("external_sql_file.fileList[0].name is required")
-            dag_config.update("sql_file_name", external_sql_filename)
+            filenames = []
+            count = payload.get("external_sql_file_count", 0)
+            for i in range(count):
+                file_obj = payload.get(f"external_sql_file_{i}", {})
+                filename = file_obj.get("fileList", [{}])[0].get("name")
+                if filename:
+                    filenames.append(filename)
+            dag_config["external_sql_files"] = filenames
             result = generate_and_write_dag(dag_template, dag_config)
             return result
         elif str(payload.get('sql_source_type')).upper() == INLINE_SQL:
             dag_template = load_template("templates/bg_sql_executor_inline_sql.template")
-            dag_config.update("inline_sql_query", payload.get("inline_sql_query", ""))
+            queries = []
+            count = payload.get("inline_sql_count", 0)
+            for i in range(count):
+                query = payload.get(f"inline_sql_query_{i}", "")
+                if query.strip():
+                    queries.append(query)
+            dag_config["inline_sql_queries"] = queries
             result = generate_and_write_dag(dag_template, dag_config)
             return result
     elif str(payload.get("dag_type")).upper() == BT_TO_BQ_STREAMING:

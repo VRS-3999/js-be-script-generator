@@ -87,14 +87,18 @@ with DAG(
     tags=DAG_TAGS,
 ) as dag:
 
-    bq_stream_to_bq_view = BigQueryInsertJobOperator(
-        task_id="bq_stream_to_bq_view",
+    {% for i, query in enumerate(inline_sql_queries) %}
+    bq_task_{{ i }} = BigQueryInsertJobOperator(
+        task_id="bq_stream_to_bq_view_{{ i }}",
         configuration={
             "query": {
-                "query": {{ inline_sql_query }}.format(**locals()),
+                "query": {{ query }}.format(**locals()),
                 "useLegacySql": False,
             }
         },
     )
+    {% endfor %}
 
-    (bq_stream_to_bq_view)
+    {% for i in range(inline_sql_queries|length - 1) %}
+    bq_task_{{ i }} >> bq_task_{{ i+1 }}
+    {% endfor %}

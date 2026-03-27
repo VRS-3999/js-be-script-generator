@@ -87,16 +87,20 @@ with DAG(
     tags=DAG_TAGS,
 ) as dag:
 
-    bq_stream_to_bq_view = BigQueryInsertJobOperator(
-        task_id="bq_stream_to_bq_view",
+    {% for i, filename in enumerate(external_sql_files) %}
+    bq_task_{{ i }} = BigQueryInsertJobOperator(
+        task_id="bq_stream_to_bq_view_{{ i }}",
         configuration={
             "query": {
                 "query": open(
-                    f"{CUR_DIR}/src/sqls/{{ sql_file_name }}", "r"
+                    f"{CUR_DIR}/src/sqls/{{ filename }}", "r"
                 ).read().format(**locals()),
                 "useLegacySql": False,
             }
         },
     )
+    {% endfor %}
 
-    (bq_stream_to_bq_view)
+    {% for i in range(external_sql_files|length - 1) %}
+    bq_task_{{ i }} >> bq_task_{{ i+1 }}
+    {% endfor %}
