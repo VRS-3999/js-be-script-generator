@@ -65,7 +65,13 @@ MANAGER_DEFAULTS = {
         "load_data_sql": "load_data_sql input",
         "custom_capabilities": "dataproc_processing",
         "custom_description": "custom_description input",
-        "operation_type": "bt_migration"
+        "operation_type": "bt_migration",
+        "dev_resource_sa": "dev-resource-sa@project-id.iam.gserviceaccount.com",
+        "dev_connect_sa": "dev-connect-resource-sa@project-id.iam.gserviceaccount.com",
+        "test_resource_sa": "test-resource-sa@project-id.iam.gserviceaccount.com",
+        "test_connect_sa": "test-connect-resource-sa@project-id.iam.gserviceaccount.com",
+        "prod_resource_sa": "prod-resource-sa@project-id.iam.gserviceaccount.com",
+        "prod_connect_sa": "prod-connect-resource-sa@project-id.iam.gserviceaccount.com"
     },
 
     "rahul": {

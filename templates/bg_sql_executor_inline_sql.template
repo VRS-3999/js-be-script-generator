@@ -47,8 +47,8 @@ CUR_DIR = os.path.abspath(os.path.dirname(__file__))
 
 # Adjust based on GCP_ENV value
 if GCP_ENV == f"{LOB}-test":
-    CONNECT_SA = "{{ qa_connect_sa }}"
-    RESOURCE_SA = "{{ qa_resource_sa }}"
+    CONNECT_SA = "{{ test_connect_sa }}"
+    RESOURCE_SA = "{{ test_resource_sa }}"
 elif GCP_ENV == f"{LOB}-prod":
     CONNECT_SA = "{{ prod_connect_sa }}"
     RESOURCE_SA = "{{ prod_resource_sa }}"

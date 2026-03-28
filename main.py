@@ -43,8 +43,8 @@ async def generate_script(payload: Dict[str, Any]):
             "test_success_emails": _normalize_list(payload.get("test_success_emails", '')), # NOT USED IN TEMPLATES
             "dev_resource_sa": _normalize_list(payload.get("dev_resource_sa", '')),
             "dev_connect_sa": _normalize_list(payload.get("dev_connect_sa", '')),
-            "qa_resource_sa": _normalize_list(payload.get("qa_resource_sa", '')),
-            "qa_connect_sa": _normalize_list(payload.get("qa_connect_sa", '')),
+            "test_resource_sa": _normalize_list(payload.get("test_resource_sa", '')),
+            "test_connect_sa": _normalize_list(payload.get("test_connect_sa", '')),
             "prod_resource_sa": _normalize_list(payload.get("prod_resource_sa", '')),
             "prod_connect_sa": _normalize_list(payload.get("prod_connect_sa", '')),
             "owner_email": payload.get("email", ''),
