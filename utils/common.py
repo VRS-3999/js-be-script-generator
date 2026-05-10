@@ -31,3 +31,13 @@ def generate_and_write_dag(dag_template, dag_config):
                 dag_template=dag_template,
                 payload=dag_config,
             )
+
+def dag_generator_ask_question(dag_code: str, question: str) -> str:
+    generator = DagGenerator(
+        cfg=CFG,
+        system_instruction_md_path="prompts/system_instruction.md",
+    )
+    return generator.ask_question(
+        dag_code=dag_code,
+        question=question,
+    )

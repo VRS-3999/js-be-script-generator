@@ -1,7 +1,5 @@
 import logging
 import ast
-import uuid
-import os
 from google import genai
 from google.genai import types
 from .helpers import clean_generated_code, load_system_instruction, build_user_prompt, CFG
@@ -27,6 +25,7 @@ class DagGenerator:
         )
 
     def generate_dag_code(self, user_prompt: str) -> str:
+
         logger.debug(
             "Generating code: model=%s temperature=%.2f",
             self.cfg.model_name,
@@ -58,15 +57,55 @@ class DagGenerator:
         logger.debug("Generation complete (chars=%d).", len(text))
         return text
 
+    def ask_question(
+        self,
+        dag_code: str,
+        question: str,
+    ) -> str:
+
+        prompt = f"""
+            You are an Apache Airflow DAG expert.
+
+            Below is the DAG code:
+
+            {dag_code}
+
+            Question:
+            {question}
+
+            Answer clearly and briefly.
+            """
+
+        contents = [
+            types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=prompt)],
+            )
+        ]
+
+        response = self.client.models.generate_content(
+            model=self.cfg.model_name,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                temperature=0.2,
+                response_mime_type="text/plain",
+            ),
+        )
+
+        return (response.text or "").strip()
+
     def generate_and_write_dag(
         self,
         dag_template: str,
         payload: dict,
     ) -> dict:
+
         user_prompt = build_user_prompt(dag_template, payload)
         dag_code = self.generate_dag_code(user_prompt)
+
         # Validate generated Python
         ast.parse(dag_code)
+
         return {
             "dag_code": dag_code
         }

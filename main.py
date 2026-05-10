@@ -1,10 +1,10 @@
-import os
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any
 from settings.config import BG_SQL_EXECUTOR, BT_TO_BQ_STREAMING, INLINE_SQL, EXTERNAL_SQL, MANAGER_DEFAULTS
-from utils.common import _normalize_list, is_debug, load_template, get_generator, CFG, generate_and_write_dag
+from utils.common import _normalize_list, dag_generator_ask_question, is_debug, load_template, get_generator, CFG, generate_and_write_dag
+from api_datamodel import AskDagRequest
+from fastapi.responses import PlainTextResponse
 
 app = FastAPI()
 
@@ -194,3 +194,13 @@ async def get_all_managers():
         "success": True,
         "data": managers
     }
+
+@app.post("/api/ask", response_class=PlainTextResponse)
+async def ask_dag_question(payload: AskDagRequest):
+    try:
+        if is_debug():
+            return str('dag answer')
+        answer = dag_generator_ask_question(dag_code=payload.dagCode, question=payload.prompt)
+        return PlainTextResponse(answer)
+    except Exception as e:
+        return PlainTextResponse(f"Error: {str(e)}", status_code=500)
